@@ -1,0 +1,41 @@
+version: "3.3"
+
+services:
+    rabbitmq:
+        build: ./docker/rabbitmq/
+        ports:
+            - 8005:15672
+    redis:
+        image: redis
+
+    laravel-dispatch:
+        build: .
+        command: "bash ./wait-for-it.sh -s -t 0 rabbitmq:15672 -- php artisan dispatch -vvv"
+        links:
+            - rabbitmq
+            - redis
+        depends_on:
+            - rabbitmq
+            - redis
+        environment:
+            REDIS_CLIENT: predis
+            RABBITMQ_HOST: rabbitmq
+            QUEUE_CONNECTION: rabbitmq
+            RABBITMQ_WORKER: horizon
+            REDIS_HOST: redis
+
+    laravel-worker:
+        build: .
+        command: "bash ./wait-for-it.sh -s -t 0 rabbitmq:15672 -- php artisan rabbitmq:consume -vvv"
+        links:
+            - redis
+            - rabbitmq
+        depends_on:
+            - rabbitmq
+            - redis
+        environment:
+            REDIS_HOST: redis
+            REDIS_CLIENT: predis
+            RABBITMQ_HOST: rabbitmq
+            QUEUE_CONNECTION: rabbitmq
+            RABBITMQ_WORKER: horizon
